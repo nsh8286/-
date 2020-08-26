@@ -12,8 +12,10 @@ output_size = env.action_space.n
 learning_rate = 0.1
 
 # choose actions
-inputs = tf.keras.Input(shape=(1,input_size))
-Qpred = layers.Dense(units = output_size)(inputs)
+inputs = tf.keras.Input(shape=(input_size))
+W =  tf.Variable(tf.random.uniform(
+    [input_size, output_size], 0, 0.01))#weight
+Qpred = tf.matmul(inputs, W)
 modelQpred = tf.keras.Model(inputs = inputs, outputs = Qpred)
 
 modelQpred.compile(loss = 'mse',optimizer = tf.keras.optimizers.SGD(lr=learning_rate))
@@ -41,7 +43,8 @@ for i in range(num_episodes):
     while not done:
         # Choose an action by greedily (with e chance of random action)
         # from the Q-network
-        Qs = modelQpred.predict(one_hot(s))
+        tmp = one_hot(s)
+        Qs = modelQpred.predict(tmp)
         if np.random.rand(1) < e :
             a = env.action_space.sample()
         else:
@@ -60,7 +63,7 @@ for i in range(num_episodes):
             Qs[0,a] = reward + dis*np.max(Qs1)
 
         #train our network using target Y and predicte Q values
-        modelQpred.fit(one_hot(s),Qs)
+        modelQpred.fit(one_hot(s),Qs, verbose =0)
 
         rAll += reward
         s = s1
