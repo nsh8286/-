@@ -2,7 +2,8 @@ import gym
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from tensorflow.keras import layers
+#from tensorflow.keras import layers
+import copy
 
 env = gym.make('FrozenLake-v0')
 
@@ -12,18 +13,44 @@ output_size = env.action_space.n
 learning_rate = 0.1
 
 # choose actions
+'''
 inputs = tf.keras.Input(shape=(input_size))
 W =  tf.Variable(tf.random.uniform(
-    [input_size, output_size], 0, 0.01))#weight
+    [input_size, output_size], 0, 1))#weight
+Wbf = W.numpy()
+print(W)
+print(Wbf)
+print(type(W))
+print(type(Wbf))
 Qpred = tf.matmul(inputs, W)
 modelQpred = tf.keras.Model(inputs = inputs, outputs = Qpred)
+'''
+class MyModel(tf.keras.Model):
+    def __init__(self):
+        super().__init__(name = 'my_model')
+        self.W = tf.Variable(tf.random.uniform(
+                                [input_size, output_size], 0, 1))#weight
+    def call(self,x):
+        return tf.matmul(x,self.W)
 
-modelQpred.compile(loss = 'mse',optimizer = tf.keras.optimizers.SGD(lr=learning_rate))
+modelQpred = MyModel()
+Wbf = modelQpred.W.numpy() # W before fit 저장
+
+def loss(predicted_y, desired_y):
+    return tf.reduce_sum(tf.square(predicted_y-  desired_y))
+'''
+modelQpred.compile(loss = loss, optimizer = tf.keras.optimizers.SGD(lr=learning_rate))
 modelQpred.summary()
-
+'''
+def train(model, inputs, outputs, learning_rate):
+    with tf.GradientTape() as t:
+        current_loss = loss(model.predict(inputs), outputs)
+    dW = t.gradient(current_loss, [model.W])
+    print(dW)
+    model.W.assign_sub(learning_rate*dW)
 # Set Q-learning related parameters
 dis =.99
-num_episodes = 2000
+num_episodes = 1
 
 #Create lists to contain total rewards and steps per episode
 rList =[]
@@ -43,8 +70,7 @@ for i in range(num_episodes):
     while not done:
         # Choose an action by greedily (with e chance of random action)
         # from the Q-network
-        tmp = one_hot(s)
-        Qs = modelQpred.predict(tmp)
+        Qs = modelQpred.predict(one_hot(s))
         if np.random.rand(1) < e :
             a = env.action_space.sample()
         else:
@@ -63,7 +89,17 @@ for i in range(num_episodes):
             Qs[0,a] = reward + dis*np.max(Qs1)
 
         #train our network using target Y and predicte Q values
-        modelQpred.fit(one_hot(s),Qs, verbose =0)
+        train(MyModel, one_hot(s), Qs, learning_rate)
+        Waf = modelQpred.W.numpy()
+        if (not np.array_equiv(Wbf, Waf)):
+            print("W has changed!")
+        if (done): # for watch the W change
+            print(modelQpred.W)
+            print('state : ', s)
+            print('one hot : ', one_hot(s))
+            print('Qs    : ', Qs)        
+        
+
 
         rAll += reward
         s = s1
