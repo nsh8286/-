@@ -29,7 +29,7 @@ class MyModel(tf.keras.Model):
     def __init__(self):
         super().__init__(name = 'my_model')
         self.W = tf.Variable(tf.random.uniform(
-                                [input_size, output_size], 0, 1))#weight
+                                [input_size, output_size], 0, 0.01))#weight
     def call(self,x):
         return tf.matmul(x,self.W)
 
