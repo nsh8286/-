@@ -14,9 +14,9 @@ class MyModel(tf.keras.Model):
         self.hidden_layers = []
         for i in hidden_units:
             self.hidden_layers.append(tf.keras.layers.Dense(
-                i, activation='tanh', kernel_initializer='RandomNormal'))
+                i, activation='tanh', kernel_initializer='glorot_uniform'))
         self.output_layer = tf.keras.layers.Dense(
-            num_actions, activation='linear', kernel_initializer='RandomNormal')
+            num_actions, activation='linear', kernel_initializer='glorot_uniform')
 
     @tf.function
     def call(self, inputs):
@@ -82,6 +82,7 @@ class DQN:
             v1.assign(v2.numpy())
 
 
+
 def play_game(env, TrainNet, TargetNet, epsilon, copy_step):
     rewards = 0
     iter = 0
@@ -94,7 +95,7 @@ def play_game(env, TrainNet, TargetNet, epsilon, copy_step):
         observations, reward, done, _ = env.step(action)
         rewards += reward
         if done:
-            reward = -200
+            reward = -100
             env.reset()
 
         exp = {'s': prev_observations, 'a': action, 'r': reward, 's2': observations, 'done': done}
@@ -110,7 +111,7 @@ def play_game(env, TrainNet, TargetNet, epsilon, copy_step):
     return rewards, mean(losses)
 
 def make_video(env, TrainNet):
-    env = wrappers.Monitor(env, os.path.join(os.getcwd(), "videos"), force=True)
+    #env = wrappers.Monitor(env, os.path.join(os.getcwd(), "videos"), force=True)
     rewards = 0
     steps = 0
     done = False
@@ -126,43 +127,46 @@ def make_video(env, TrainNet):
 
 def main():
     env = gym.make('CartPole-v0')
-    gamma = 0.99
-    copy_step = 25
+    env._max_episode_steps = 3001#episode num change
+    gamma = 0.9
+    copy_step = 10
     num_states = len(env.observation_space.sample())
     num_actions = env.action_space.n
-    hidden_units = [200, 200]
+    hidden_units = [10]
     max_experiences = 10000
     min_experiences = 100
-    batch_size = 32
+    batch_size = 100
     lr = 1e-2
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_dir = os.path.join("C:", "tflogs", "dqn", current_time)
+    log_dir = os.path.join("C:", "tflogs", "dqn02", current_time)
     summary_writer = tf.summary.create_file_writer(log_dir)
 
     TrainNet = DQN(num_states, num_actions, hidden_units, gamma, max_experiences, min_experiences, batch_size, lr)
     TargetNet = DQN(num_states, num_actions, hidden_units, gamma, max_experiences, min_experiences, batch_size, lr)
-    N = 50000
+    N = 1000
     total_rewards = np.empty(N)
     epsilon = 0.99
-    decay = 0.9999
+    decay = 0.993
     min_epsilon = 0.1
     for n in range(N):
         epsilon = max(min_epsilon, epsilon * decay)
+        #epsilon = 1/(n/10+1)
         total_reward, losses = play_game(env, TrainNet, TargetNet, epsilon, copy_step)
         total_rewards[n] = total_reward
         avg_rewards = total_rewards[max(0, n - 100):(n + 1)].mean()
-        with summary_writer.as_default():
-            tf.summary.scalar('episode reward', total_reward, step=n)
-            tf.summary.scalar('running avg reward(100)', avg_rewards, step=n)
-            tf.summary.scalar('average loss)', losses, step=n)
+        if n % 5 == 0:
+            with summary_writer.as_default():
+                tf.summary.scalar('episode reward', total_reward, step=n)
+                tf.summary.scalar('running avg reward(100)', avg_rewards, step=n)
+                tf.summary.scalar('average loss)', losses, step=n)
         if n % 100 == 0:
             print("episode:", n, "episode reward:", total_reward, "eps:", epsilon, "avg reward (last 100):", avg_rewards,
                   "episode loss: ", losses)
     print("avg reward for last 100 episodes:", avg_rewards)
-    #make_video(env, TrainNet)
+    make_video(env, TrainNet)
     env.close()
 
 
 if __name__ == '__main__':
-    for i in range(3):
+    for i in range(1):
         main()
