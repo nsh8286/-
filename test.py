@@ -1,5 +1,5 @@
 import numpy as np
-#import tensorflow as tf
+import tensorflow as tf
 '''
 a = tf.one_hot(np.array([0,1,2,3,2,3]),4)
 print (a)
