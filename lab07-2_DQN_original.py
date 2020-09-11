@@ -4,8 +4,7 @@ import gym
 import os
 import datetime
 from statistics import mean
-from gym import wrappers
-from collections import deque # for action list
+#from gym import wrappers
 
 
 class MyModel(tf.keras.Model):
@@ -15,9 +14,9 @@ class MyModel(tf.keras.Model):
         self.hidden_layers = []
         for i in hidden_units:
             self.hidden_layers.append(tf.keras.layers.Dense(
-                i, activation='tanh', kernel_initializer='glorot_uniform'))
+                i, activation='tanh', kernel_initializer='RandomNormal'))
         self.output_layer = tf.keras.layers.Dense(
-            num_actions, activation='linear', kernel_initializer='glorot_uniform')
+            num_actions, activation='linear', kernel_initializer='RandomNormal')
 
     @tf.function
     def call(self, inputs):
@@ -83,7 +82,6 @@ class DQN:
             v1.assign(v2.numpy())
 
 
-
 def play_game(env, TrainNet, TargetNet, epsilon, copy_step):
     rewards = 0
     iter = 0
@@ -117,61 +115,47 @@ def make_video(env, TrainNet):
     steps = 0
     done = False
     observation = env.reset()
-    action_list = deque(maxlen=200)#
-
     while not done:
         env.render()
         action = TrainNet.get_action(observation, 0)
-        action_list.append(action)#
         observation, reward, done, _ = env.step(action)
         steps += 1
         rewards += reward
     print("Testing steps: {} rewards {}: ".format(steps, rewards))
-    print("action: ", action_list)#show actions
 
 
 def main():
     env = gym.make('CartPole-v0')
-    env._max_episode_steps = 3001#episode num change
-    gamma = 0.9
+    gamma = 0.99
     copy_step = 25
     num_states = len(env.observation_space.sample())
     num_actions = env.action_space.n
-    hidden_units = [10]
+    hidden_units = [200, 200]
     max_experiences = 10000
     min_experiences = 100
     batch_size = 32
     lr = 1e-2
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_dir = os.path.join("C:", "tflogs", "dqn02", current_time)
+    log_dir = 'c:/tflogs/dqn02/' + current_time
     summary_writer = tf.summary.create_file_writer(log_dir)
 
     TrainNet = DQN(num_states, num_actions, hidden_units, gamma, max_experiences, min_experiences, batch_size, lr)
     TargetNet = DQN(num_states, num_actions, hidden_units, gamma, max_experiences, min_experiences, batch_size, lr)
-    N = 500
+    N = 50000
     total_rewards = np.empty(N)
     epsilon = 0.99
-    decay = 0.99
-    min_epsilon = 0.01
+    decay = 0.9999
+    min_epsilon = 0.1
     for n in range(N):
         epsilon = max(min_epsilon, epsilon * decay)
-        #epsilon = 1/(n/10+1)
-        total_reward, losses= play_game(env, TrainNet, TargetNet, epsilon, copy_step)
+        total_reward, losses = play_game(env, TrainNet, TargetNet, epsilon, copy_step)
         total_rewards[n] = total_reward
         avg_rewards = total_rewards[max(0, n - 100):(n + 1)].mean()
-        #for debug-------------------
-        #inistate = env.reset()
-        #model_start, model_end = TrainNet.predict(inistate).numpy(), TrainNet.predict(endstate).numpy()
-        if n % 5 == 0:
-            #print(model_start)
-            #print("    ",model_end)
-            with summary_writer.as_default():
-                tf.summary.scalar('episode reward', total_reward, step=n)
-                tf.summary.scalar('running avg reward(100)', avg_rewards, step=n)
-                tf.summary.scalar('average loss)', losses, step=n)
-                tf.summary.scalar('epsilon', epsilon, step=n)
+        with summary_writer.as_default():
+            tf.summary.scalar('episode reward', total_reward, step=n)
+            tf.summary.scalar('running avg reward(100)', avg_rewards, step=n)
+            tf.summary.scalar('average loss)', losses, step=n)
         if n % 100 == 0:
-            make_video(env, TrainNet)
             print("episode:", n, "episode reward:", total_reward, "eps:", epsilon, "avg reward (last 100):", avg_rewards,
                   "episode loss: ", losses)
     print("avg reward for last 100 episodes:", avg_rewards)
@@ -180,5 +164,5 @@ def main():
 
 
 if __name__ == '__main__':
-    for i in range(1):
+    for i in range(3):
         main()
