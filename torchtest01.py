@@ -20,7 +20,7 @@ class ActorCritic(nn.Module):
         self.fc_v = nn.Linear(256,1)
         self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
         
-    def pi(self, x, softmax_dim = 0):                   #입력 차원에 따라 dim을 바꾼다
+    def pi(self, x, softmax_dim = 0):
         x = F.relu(self.fc1(x))
         x = self.fc_pi(x)
         prob = F.softmax(x, dim=softmax_dim)
@@ -53,14 +53,20 @@ class ActorCritic(nn.Module):
   
     def train_net(self):
         s, a, r, s_prime, done = self.make_batch()      #torch.tensor형태로 받아온다. 동시에 데이터 비움
-        td_target = r + gamma * self.v(s_prime) * done  #done=true였다면 TD target = r. 일괄 계산
-        delta = td_target - self.v(s)                   #delta 일괄 계산.
+        td_target = r + gamma * self.v(s_prime) * done  #done=true였다면 TD target = r.
+        delta = td_target - self.v(s)
         
-        pi = self.pi(s, softmax_dim=1)                  #policy 계산 (마지막에 행마다 softmax해주기)
-        pi_a = pi.gather(1,a)                           #행 기준으로, index a 부분만 모으기 = pi(s,a)
-        #detach() : backpropagation할 때 미분에 포함되는 것 방지. .item()효과
-        #smooth_l1_loss : loss function중의 하나로 ㅣ1 loss와 ㅣ2 loss의 중간적인 느낌
-        #아래식 앞 항은 policy 학습용, 뒷 항은 v(s) 학습용
+        pi = self.pi(s, softmax_dim=1)
+        print("-----softmax pi--")
+        print(pi)
+        print("-----pi end------")
+        pi_a = pi.gather(1,a)
+        print("-----a-----------")
+        print(a)
+        print("-----a end-------")
+        print("-----pi_a--------")
+        print(pi_a)
+        print("-----pi_a end----")
         loss = -torch.log(pi_a) * delta.detach() + F.smooth_l1_loss(self.v(s), td_target.detach())
 
         self.optimizer.zero_grad()
@@ -73,7 +79,7 @@ def main():
     print_interval = 20
     score = 0.0
 
-    for n_epi in range(10000):
+    for n_epi in range(1):
         done = False
         s = env.reset()
         while not done:
