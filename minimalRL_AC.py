@@ -1,3 +1,5 @@
+#original code : https://github.com/seungeunrho/minimalRL/blob/master/actor_critic.py
+
 import gym
 import torch
 import torch.nn as nn
