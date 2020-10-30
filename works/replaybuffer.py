@@ -2,7 +2,7 @@ import collections
 import random
 import torch
 buffer_limit = 50000
-class ReplayBuffer():
+class ReplayBuffer(object):
     def __init__(self):
         self.buffer = collections.deque(maxlen=buffer_limit)
 
