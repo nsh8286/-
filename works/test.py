@@ -36,35 +36,38 @@ from ou import OrnsteinUhlenbeckNoise
 # print(instance)
 # print(instance())
 
-# # --gym_torcs and replaybuffer test--
-# env = TorcsEnv(vision=False, throttle=True, gear_change=False)
-# memory = ReplayBuffer()
-# max_step = 500
-# ob = env.reset()
-# s_t = np.hstack((ob.angle, ob.track,ob.trackPos,ob.speedX, ob.speedY,  ob.speedZ, ob.wheelSpinVel/100.0, ob.rpm))
-# a = [[0,0]]
-# t_start = timeit.default_timer()
-# for i in range(max_step):
-#     ob,r_t,done,info = env.step(a[0])
-#     if done:
-#         break
-#     s_t1 = np.hstack((ob.angle, ob.track, ob.trackPos, ob.speedX, ob.speedY, ob.speedZ, ob.wheelSpinVel/100.0, ob.rpm))
-#     memory.put((s_t,a[0],r_t,s_t1,done))
-#     s_t = s_t1
-# t_end = timeit.default_timer()
-# s_done = s_t
-# print ('done?: ',s_done)
-# print('{}steps, {} time spent'.format(i,t_end-t_start))
-# env.end()
-# s,a,r,sp,d = memory.sample(1)
-# print('s: ',s)
-# print('a: ',a)
-# print('r: ',r)
-# print('sp: ', sp)
-# print('d: ',d)
+# --gym_torcs,AC and replaybuffer test--
+env = TorcsEnv(vision=False, throttle=True, gear_change=False)
+memory = ReplayBuffer()
+max_step = 500
+ob = env.reset()
+print("ob: ",ob)
+s_t = np.hstack((ob.angle, ob.track,ob.trackPos,ob.speedX, ob.speedY,  ob.speedZ, ob.wheelSpinVel/100.0, ob.rpm))
+print("s_t: ", s_t)
+print("s_t size: ",s_t.size)
+a = [[0,1]]
+#t_start = timeit.default_timer()
+for i in range(max_step):
+    ob,r_t,done,info = env.step(a[0])
+    if done:
+        break
+    s_t1 = np.hstack((ob.angle, ob.track, ob.trackPos, ob.speedX, ob.speedY, ob.speedZ, ob.wheelSpinVel/100.0, ob.rpm))
+    memory.put((s_t,a[0],r_t,s_t1,done))
+    s_t = s_t1
+#t_end = timeit.default_timer()
+s_done = s_t
+print ('done?: ',s_done)
+#print('{}steps, {} time spent'.format(i,t_end-t_start))
+env.end()
+s,a,r,sp,d = memory.sample(3)
+print('s: ',s)
+print('a: ',a)
+print('r: ',r)
+print('sp: ', sp)
+print('d: ',d)
 
-# --noise 테스트합니다.--
-noise = OrnsteinUhlenbeckNoise(mu = np.zeros(1),theta=1,sigma = 0.5)
-for i in range(300):
-    noise()
-    print(noise)
+# # --noise 테스트합니다.--
+# noise = OrnsteinUhlenbeckNoise(mu = np.zeros(1),theta=0.1,dt=0.2,sigma = 0.1, x0 = np.array([0.5]))
+# for i in range(300):
+#     noise()
+#     print(noise)

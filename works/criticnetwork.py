@@ -16,8 +16,8 @@ class QNet(nn.Module):          #critic
         cat = torch.cat([h1,h2], dim=1) #64개 parameter들로 나눈 state + action 합치기
         q = F.relu(self.fc_q(cat))
         q = self.fc_3(q)
-        print("------CriticNet start-------")
-        print("cat: ",cat)
-        print("q: ", q)
-        print("------CriticNet close-------")
+        # print("------CriticNet start-------")
+        # print("cat: ",cat)
+        # print("q: ", q)
+        # print("------CriticNet close-------")
         return q

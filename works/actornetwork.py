@@ -16,9 +16,9 @@ class MuNet(nn.Module):         #actor
         acc = torch.sigmoid(self.fc_acc(x))#[0,1]
         cat = torch.cat([steer,acc],dim=1) #bind actions together
 
-        print("------ActorNet start-------")
-        print("steer: ",steer)
-        print("acc: ",acc)
-        print("cat: ",cat)
-        print("------ActorNet close-------")
+        # print("------ActorNet start-------")
+        # print("steer: ",steer)
+        # print("acc: ",acc)
+        # print("cat: ",cat)
+        # print("------ActorNet close-------")
         return cat

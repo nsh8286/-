@@ -2,7 +2,7 @@
 import numpy as np
 
 class OrnsteinUhlenbeckNoise(object):           
-    def __init__(self, mu, theta=0.1, dt=0.01, sigma=0.1, x0=None):
+    def __init__(self, mu, theta=0.1, dt=0.2, sigma=0.1, x0=None):
         self.theta, self.dt, self.sigma = theta, dt, sigma
         self.mu = mu
         self.x0 = x0
@@ -12,7 +12,7 @@ class OrnsteinUhlenbeckNoise(object):
         x = self.x_prev + self.theta * (self.mu - self.x_prev) * self.dt + \
                 self.sigma * np.sqrt(self.dt) * np.random.normal(size=self.mu.shape)
         self.x_prev = x
-        return x
+        return x #shape : 1d array
     
     def __repr__(self):
         return '{}'.format(self.x_prev)
