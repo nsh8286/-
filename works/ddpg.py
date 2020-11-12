@@ -13,22 +13,22 @@ from ou import OrnsteinUhlenbeckNoise as OUN
 
 state_dim = 29
 action_dim = 2
-max_episode = 1
+max_episode = 2000
 max_step = 2000
-log_timer = 0
+iteration = 0 # global step for record
 
 EXPLORE      = 3000
 lr_mu        = 0.0001
-lr_q         = 0.001
+lr_q         = 0.00005
 gamma        = 0.99
-batch_size   = 32
+batch_size   = 64
 tau          = 0.001
 
 def main():    
-    global log_timer
+    global iteration
     env = TorcsEnv(vision=False, throttle=True, gear_change=False)
     memory = ReplayBuffer()
-    epsilon = 1
+    #epsilon = 1
     train_indicator = True
 
     q,q_target = QNet(state_dim,action_dim),QNet(state_dim,action_dim)
@@ -42,7 +42,7 @@ def main():
 
     #tensorboard writer
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_dir = os.path.join("logs", "ddpg_torch", current_time)
+    log_dir = os.path.join("logs", "ddpg_torch", current_time+'E0001')
     writer = SummaryWriter(log_dir)
     samplestate = torch.rand(1,29)
     sampleaction = torch.rand(1,2)
@@ -63,28 +63,31 @@ def main():
         score = 0
         #t_start = timeit.default_timer()
         for n_step in range(max_step):
-            epsilon -= 1.0/EXPLORE
+            #epsilon -= 1.0/EXPLORE
             a_origin = mu(torch.from_numpy(s_t.reshape(1,-1)).float())
             if train_indicator == True:#add noise for train
-                a_s = a_origin.detach().numpy()[0][0] + epsilon*steer_noise()
+                a_s = a_origin.detach().numpy()[0][0] + steer_noise()
                 a_t[0][0] = np.clip(a_s,-1,1) # fit in steer arange
-                a_a = a_origin.detach().numpy()[0][1] + epsilon*accel_noise()
+                a_a = a_origin.detach().numpy()[0][1] + accel_noise()
                 a_t[0][1] = np.clip(a_a,0,1) # fit in accel arange
+                #record noise movement
+                writer.add_scalar('Steer noise', steer_noise.x_prev, iteration)
+                writer.add_scalar('Accel_noise', accel_noise.x_prev, iteration)
             else:
                 a_t = a_origin.detatch().numpy()
-            ob,r_t,done,info = env.step(a_t[0])
+            ob,r_t,done,_ = env.step(a_t[0])
             score += r_t
 
             s_t1 = np.hstack((ob.angle, ob.track, ob.trackPos, ob.speedX, ob.speedY, ob.speedZ, ob.wheelSpinVel/100.0, ob.rpm))
             memory.put((s_t,a_t[0],r_t,s_t1,done))
             s_t = s_t1
 
-            if train_indicator and memory.size()>500:
-                train(mu, mu_target, q, q_target, memory, q_optimizer, mu_optimizer)
+            if train_indicator and memory.size()>2000:
+                train(mu, mu_target, q, q_target, memory, q_optimizer, mu_optimizer,writer)
                 soft_update(mu, mu_target)
                 soft_update(q,  q_target)
             
-            log_timer+=1
+            iteration+=1
 
             if done:
                 break
@@ -102,8 +105,8 @@ def main():
     # print('sp: ', sp)
     # print('d: ',d)
 
-def train(mu, mu_target, q, q_target, memory, q_optimizer, mu_optimizer):
-    global log_timer
+def train(mu, mu_target, q, q_target, memory, q_optimizer, mu_optimizer, writer):
+    global iteration
     s,a,r,s_prime,done_mask  = memory.sample(batch_size)
     # target = r if done
     target = r + np.logical_not(done_mask) *gamma*q_target(s_prime, mu_target(s_prime))
@@ -111,11 +114,15 @@ def train(mu, mu_target, q, q_target, memory, q_optimizer, mu_optimizer):
     q_optimizer.zero_grad()     #backward()가 가중치를 덮어씌우지 않고, 누적하기 때문에 초기화 한다.
     q_loss.backward()
     q_optimizer.step()
-    
     mu_loss = -q(s,mu(s)).mean() # That's all for the policy loss.
     mu_optimizer.zero_grad()
     mu_loss.backward()
     mu_optimizer.step()
+
+    if iteration%10==0: # tensorboard record
+        writer.add_scalar('reward',r.mean().item(),iteration)
+        writer.add_scalar('Q_loss',q_loss.item(),iteration)
+        writer.add_scalar('Mu_loss',mu_loss.item(),iteration)
 
 def soft_update(net, net_target):
     for param_target, param in zip(net_target.parameters(), net.parameters()):
