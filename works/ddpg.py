@@ -42,7 +42,7 @@ def main():
 
     #tensorboard writer
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_dir = os.path.join("logs", "ddpg_torch", current_time+'E0001')
+    log_dir = os.path.join("logs", "ddpg_torch", current_time+'E0002')
     writer = SummaryWriter(log_dir)
     samplestate = torch.rand(1,29)
     sampleaction = torch.rand(1,2)
