@@ -13,13 +13,13 @@ from ou import OrnsteinUhlenbeckNoise as OUN
 
 state_dim = 29
 action_dim = 2
-max_episode = 2000
+max_episode = 1000
 max_step = 2000
 iteration = 0 # global step for record
 
 EXPLORE      = 3000
-lr_mu        = 0.0001
-lr_q         = 0.00005
+lr_mu        = 0.001
+lr_q         = 0.0001
 gamma        = 0.99
 batch_size   = 64
 tau          = 0.001
@@ -42,7 +42,7 @@ def main():
 
     #tensorboard writer
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_dir = os.path.join("logs", "ddpg_torch", current_time+'E0002')
+    log_dir = os.path.join("logs", "ddpg_torch", current_time+'E0004')
     writer = SummaryWriter(log_dir)
     samplestate = torch.rand(1,29)
     sampleaction = torch.rand(1,2)
@@ -71,8 +71,8 @@ def main():
                 a_a = a_origin.detach().numpy()[0][1] + accel_noise()
                 a_t[0][1] = np.clip(a_a,0,1) # fit in accel arange
                 #record noise movement
-                writer.add_scalar('Steer noise', steer_noise.x_prev, iteration)
-                writer.add_scalar('Accel_noise', accel_noise.x_prev, iteration)
+                # writer.add_scalar('Steer noise', steer_noise.x_prev, iteration)
+                # writer.add_scalar('Accel_noise', accel_noise.x_prev, iteration)
             else:
                 a_t = a_origin.detatch().numpy()
             ob,r_t,done,_ = env.step(a_t[0])
