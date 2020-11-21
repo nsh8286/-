@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 import datetime
 import os
+import copy
 from torch.utils.tensorboard import SummaryWriter
 from actornetwork import MuNet
 from criticnetwork import QNet
@@ -13,8 +14,9 @@ from ou import OrnsteinUhlenbeckNoise as OUN
 
 state_dim = 29
 action_dim = 2
-max_episode = 1000
+max_episode = 2000
 max_step = 2000
+train_start_size = 1500
 iteration = 0 # global step for record
 
 EXPLORE      = 3000
@@ -42,12 +44,12 @@ def main():
 
     #tensorboard writer
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_dir = os.path.join("logs", "ddpg_torch", current_time+'E0004')
+    log_dir = os.path.join("logs", "ddpg_torch", current_time+'E0006')
     writer = SummaryWriter(log_dir)
     samplestate = torch.rand(1,29)
     sampleaction = torch.rand(1,2)
 
-    writer.add_graph(mu,samplestate)
+    #writer.add_graph(mu,samplestate)
     writer.add_graph(q,(samplestate,sampleaction))
     writer.close
 
@@ -61,6 +63,8 @@ def main():
         a_t = np.zeros([1,action_dim])
         s_t = np.hstack((ob.angle, ob.track,ob.trackPos,ob.speedX, ob.speedY,  ob.speedZ, ob.wheelSpinVel/100.0, ob.rpm))
         score = 0
+        q_value_writer(q, mu, s_t, writer, 'Episode Start Q value')
+        q_value_writer(q_target, mu_target, s_t, writer, 'Episode Start target Q value')
         #t_start = timeit.default_timer()
         for n_step in range(max_step):
             #epsilon -= 1.0/EXPLORE
@@ -80,9 +84,10 @@ def main():
 
             s_t1 = np.hstack((ob.angle, ob.track, ob.trackPos, ob.speedX, ob.speedY, ob.speedZ, ob.wheelSpinVel/100.0, ob.rpm))
             memory.put((s_t,a_t[0],r_t,s_t1,done))
+            s_temp = copy.deepcopy(s_t) # for end q value log
             s_t = s_t1
 
-            if train_indicator and memory.size()>2000:
+            if train_indicator and memory.size()>train_start_size:
                 train(mu, mu_target, q, q_target, memory, q_optimizer, mu_optimizer,writer)
                 soft_update(mu, mu_target)
                 soft_update(q,  q_target)
@@ -90,6 +95,8 @@ def main():
             iteration+=1
 
             if done:
+                q_value_writer(q,mu,s_temp,writer,'Episode End Q value')
+                q_value_writer(q_target,mu_target,s_temp,writer,'Episode End target Q value')
                 break
         #t_end = timeit.default_timer()
         
@@ -128,5 +135,12 @@ def soft_update(net, net_target):
     for param_target, param in zip(net_target.parameters(), net.parameters()):
         param_target.data.copy_(param_target.data * (1.0 - tau) + param.data * tau)
 
+
+def q_value_writer(q_net,mu_net,state,writer,parameter_name):
+    global iteration
+    state_tensor = torch.tensor(state.reshape(1,-1),dtype=torch.float)
+    action_tensor = mu_net(state_tensor)
+    q = q_net(state_tensor,action_tensor)
+    writer.add_scalar(parameter_name, q.item(),iteration)
 if __name__ == '__main__':
     main()
