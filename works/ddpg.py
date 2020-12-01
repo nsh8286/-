@@ -19,19 +19,21 @@ max_step = 2000
 train_start_size = 1500
 iteration = 0 # global step for record
 
-EXPLORE      = 3000
+EXPLORE      = 70000
 lr_mu        = 0.001
 lr_q         = 0.0001
 gamma        = 0.99
 batch_size   = 64
 tau          = 0.001
 
+
 def main():    
     global iteration
     env = TorcsEnv(vision=False, throttle=True, gear_change=False)
     memory = ReplayBuffer()
-    #epsilon = 1
+    epsilon = 1
     train_indicator = True
+    modelPATH = os.path.join('.',"models",'E0009.pt')
 
     q,q_target = QNet(state_dim,action_dim),QNet(state_dim,action_dim)
     q_target.load_state_dict(q.state_dict())
@@ -44,7 +46,7 @@ def main():
 
     #tensorboard writer
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_dir = os.path.join("logs", "ddpg_torch", current_time+'E0006')
+    log_dir = os.path.join("logs", "ddpg_torch", current_time+'E0009')
     writer = SummaryWriter(log_dir)
     samplestate = torch.rand(1,29)
     sampleaction = torch.rand(1,2)
@@ -53,6 +55,21 @@ def main():
     writer.add_graph(q,(samplestate,sampleaction))
     writer.close
 
+    if train_indicator ==False:
+        mu = torch.load(modelPATH)
+        mu.eval()
+        ob = env.reset()
+        score = 0
+        for n_step in range(100000):
+            s_t = np.hstack((ob.angle, ob.track,ob.trackPos,ob.speedX, ob.speedY,  ob.speedZ, ob.wheelSpinVel/100.0, ob.rpm))
+            a_t = mu(torch.from_numpy(s_t.reshape(1,-1)).float()).detach().numpy()
+            ob,r_t,done,_ = env.step(a_t[0])
+            score += r_t
+            if done:
+                print("score:",score)
+                break
+        env.end()
+        return 0
 
     for n_epi in range(max_episode):
         print("Episode : " + str(n_epi) + " Replay Buffer " + str(memory.size()))
@@ -70,13 +87,18 @@ def main():
             #epsilon -= 1.0/EXPLORE
             a_origin = mu(torch.from_numpy(s_t.reshape(1,-1)).float())
             if train_indicator == True:#add noise for train
-                a_s = a_origin.detach().numpy()[0][0] + steer_noise()
+                # sn = max(epsilon,0)*steer_noise()
+                sn = steer_noise()
+                # an = max(epsilon,0)*accel_noise()
+                an = accel_noise()
+                a_s = a_origin.detach().numpy()[0][0] + sn
                 a_t[0][0] = np.clip(a_s,-1,1) # fit in steer arange
-                a_a = a_origin.detach().numpy()[0][1] + accel_noise()
+                a_a = a_origin.detach().numpy()[0][1] + an
                 a_t[0][1] = np.clip(a_a,0,1) # fit in accel arange
                 #record noise movement
-                # writer.add_scalar('Steer noise', steer_noise.x_prev, iteration)
-                # writer.add_scalar('Accel_noise', accel_noise.x_prev, iteration)
+                if iteration%10==0:
+                    writer.add_scalar('Steer noise', sn, iteration)
+                    writer.add_scalar('Accel_noise', an, iteration)
             else:
                 a_t = a_origin.detatch().numpy()
             ob,r_t,done,_ = env.step(a_t[0])
@@ -104,6 +126,9 @@ def main():
         print("Total Step: " + str(n_step))
         print("")
         #print('{}steps, {} time spent'.format(i,t_end-t_start))
+    
+    torch.save(mu,modelPATH)
+    
     env.end()
     # s,a,r,sp,d = memory.sample(1)
     # print('s: ',s)
