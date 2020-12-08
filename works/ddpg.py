@@ -5,6 +5,7 @@ import numpy as np
 import datetime
 import os
 import copy
+import timeit
 from torch.utils.tensorboard import SummaryWriter
 from actornetwork import MuNet
 from criticnetwork import QNet
@@ -14,7 +15,7 @@ from ou import OrnsteinUhlenbeckNoise as OUN
 
 state_dim = 29
 action_dim = 2
-max_episode = 2000
+max_episode = 200
 max_step = 2000
 train_start_size = 1500
 iteration = 0 # global step for record
@@ -27,13 +28,18 @@ batch_size   = 64
 tau          = 0.001
 
 
-def main():    
+def main():
+    """main method
+    
+    log runtime and print it at the end
+    """
+    s_time = timeit.default_timer()     
     global iteration
     env = TorcsEnv(vision=False, throttle=True, gear_change=False)
     memory = ReplayBuffer()
     epsilon = 1
     train_indicator = True
-    modelPATH = os.path.join('.',"models",'E0009.pt')
+    modelPATH = os.path.join('.',"models",'E0011.pt')
 
     q,q_target = QNet(state_dim,action_dim),QNet(state_dim,action_dim)
     q_target.load_state_dict(q.state_dict())
@@ -46,7 +52,7 @@ def main():
 
     #tensorboard writer
     current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_dir = os.path.join("logs", "ddpg_torch", current_time+'E0009')
+    log_dir = os.path.join("logs", "ddpg_torch", current_time+'E0011t')
     writer = SummaryWriter(log_dir)
     samplestate = torch.rand(1,29)
     sampleaction = torch.rand(1,2)
@@ -130,6 +136,9 @@ def main():
     torch.save(mu,modelPATH)
     
     env.end()
+    
+    e_time = timeit.default_timer()
+    print("Total step {} and time spent {}".format(iteration, e_time-s_time))
     # s,a,r,sp,d = memory.sample(1)
     # print('s: ',s)
     # print('a: ',a)
